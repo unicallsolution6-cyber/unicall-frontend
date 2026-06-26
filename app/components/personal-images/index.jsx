@@ -5,7 +5,7 @@ import Sidebar from '../sidebar';
 import { useLayoutData } from '@/app/LayoutWrapper';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '../header';
-import { Upload } from 'lucide-react';
+import { Upload, Eye, Download, Trash2, Loader } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { userFiles } from '@/lib/api';
 
@@ -17,6 +17,42 @@ export default function PersonalImages() {
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
+
+  const getFileUrl = (file) =>
+    `${process.env.NEXT_PUBLIC_API_URL}${file.filePath}`;
+
+  const handleDownload = async (file) => {
+    try {
+      setDownloadingId(file._id);
+      await userFiles.download(file._id, file.fileName);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Failed to download image. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDelete = async (file) => {
+    if (!confirm(`Delete "${file.fileName}"? This cannot be undone.`)) return;
+    try {
+      setDeletingId(file._id);
+      const res = await userFiles.delete(file._id);
+      if (res?.success) {
+        setFiles((prev) => prev.filter((f) => f._id !== file._id));
+      } else {
+        alert(res?.message || 'Failed to delete image');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Failed to delete image. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Fetch user files
   useEffect(() => {
@@ -81,13 +117,50 @@ export default function PersonalImages() {
           {files.map((file) => (
             <div
               key={file._id}
-              className="bg-gray-900 rounded-lg overflow-hidden shadow-lg"
+              className="bg-gray-900 rounded-lg overflow-hidden shadow-lg group"
             >
-              <img
-                src={`${process.env.NEXT_PUBLIC_API_URL}${file.filePath}`}
-                alt={file.fileName}
-                className="w-full h-48 object-cover"
-              />
+              <div className="relative">
+                <img
+                  src={getFileUrl(file)}
+                  alt={file.fileName}
+                  className="w-full h-48 object-cover cursor-pointer"
+                  onClick={() => setPreviewFile(file)}
+                />
+                {/* Hover overlay actions */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => setPreviewFile(file)}
+                    title="View"
+                    className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDownload(file)}
+                    disabled={downloadingId === file._id}
+                    title="Download"
+                    className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors disabled:opacity-50"
+                  >
+                    {downloadingId === file._id ? (
+                      <Loader className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Download className="w-5 h-5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(file)}
+                    disabled={deletingId === file._id}
+                    title="Delete"
+                    className="bg-red-500/80 hover:bg-red-600 text-white p-2 rounded-full transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === file._id ? (
+                      <Loader className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
               <div className="p-2 text-sm text-gray-300 truncate">
                 {file.fileName}
               </div>
@@ -153,6 +226,45 @@ export default function PersonalImages() {
                 {uploading ? 'Uploading...' : 'Upload'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
+          onClick={() => setPreviewFile(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white text-sm truncate">
+                {previewFile.fileName}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload(previewFile)}
+                  disabled={downloadingId === previewFile._id}
+                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" /> Download
+                </button>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <img
+              src={getFileUrl(previewFile)}
+              alt={previewFile.fileName}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg"
+            />
           </div>
         </div>
       )}
