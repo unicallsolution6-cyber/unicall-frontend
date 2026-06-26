@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { UserCheck, Plus, Loader, Mail, Phone, LogOut } from "lucide-react"
+import { UserCheck, Plus, Loader, Mail, Phone, LogOut, Trash2 } from "lucide-react"
 import { Button } from "../ui/Button"
 import Sidebar from "../sidebar"
 import Header from "../header"
@@ -19,7 +19,29 @@ export default function UnicallUsers() {
   const [selectedDateFilter, setSelectedDateFilter] = useState("this-month")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const { role } = useLayoutData()
+  const [deletingId, setDeletingId] = useState(null)
+  const { role, user: currentUser } = useLayoutData()
+
+  const handleDeleteUser = async (e, userId) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) {
+      return
+    }
+    try {
+      setDeletingId(userId)
+      const response = await api.users.delete(userId)
+      if (response.success) {
+        await fetchUsers()
+      } else {
+        alert(response.message || 'Failed to delete user')
+      }
+    } catch (error) {
+      console.error('Delete user error:', error)
+      alert('Failed to delete user. Please try again.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   // Fetch users from API
   useEffect(() => {
@@ -99,13 +121,29 @@ export default function UnicallUsers() {
             <span className={`text-xs ${statusColor}`}>{statusText}</span>
           </div>
 
-          {/* View Details Button */}
-          <Button 
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
-            onClick={() => window.location.href = `/admin/user-details?id=${user._id}`}
-          >
-            View Details
-          </Button>
+          {/* Action Buttons */}
+          <div className="w-full flex flex-col gap-2">
+            <Button
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+              onClick={() => window.location.href = `/admin/user-details?id=${user._id}`}
+            >
+              View Details
+            </Button>
+            {role === 'admin' && currentUser?._id !== user._id && (
+              <Button
+                onClick={(e) => handleDeleteUser(e, user._id)}
+                disabled={deletingId === user._id}
+                className="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {deletingId === user._id ? (
+                  <Loader className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Delete
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Gradient Bottom Border */}

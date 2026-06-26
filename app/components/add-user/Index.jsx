@@ -24,10 +24,11 @@ export default function AddUser() {
     email: '',
     password: '',
     role: 'user',
-    avatar: '',
     isActive: true,
+    profileImage: null,
   });
 
+  const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -77,6 +78,33 @@ export default function AddUser() {
     if (submitError) setSubmitError('');
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setSubmitError('Please select a valid image file (JPEG, PNG, or GIF)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSubmitError('Image size must be less than 5MB');
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, profileImage: file }));
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setFormData((prev) => ({ ...prev, profileImage: null }));
+    setImagePreview(null);
+    const fileInput = document.getElementById('avatar');
+    if (fileInput) fileInput.value = '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -98,16 +126,16 @@ export default function AddUser() {
         return;
       }
 
-      const userData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        password: formData.password,
-        role: formData.role,
-        isActive: formData.isActive,
-      };
+      const userData = new FormData();
+      userData.append('name', formData.name.trim());
+      userData.append('email', formData.email.trim());
+      userData.append('password', formData.password);
+      userData.append('role', formData.role);
+      userData.append('isActive', formData.isActive);
 
-      if (formData.avatar) {
-        userData.avatar = formData.avatar;
+      // Direct multer upload to the backend uploads folder
+      if (formData.profileImage) {
+        userData.append('avatar', formData.profileImage);
       }
 
       const response = await api.users.create(userData);
@@ -120,9 +148,10 @@ export default function AddUser() {
           email: '',
           password: '',
           role: 'user',
-          avatar: '',
           isActive: true,
+          profileImage: null,
         });
+        setImagePreview(null);
 
         // Generate new credentials for next user
         generateUniqueCredentials();
@@ -320,23 +349,61 @@ export default function AddUser() {
                 </div>
               </div>
 
-              {/* Avatar URL Field */}
-              <div className="flex items-center gap-6">
+              {/* Profile Image Upload */}
+              <div className="flex items-start gap-6">
                 <Label
                   htmlFor="avatar"
-                  className="text-gray-300 text-sm block w-[20%]"
+                  className="text-gray-300 text-sm block w-[20%] pt-2"
                 >
-                  Avatar URL
+                  Profile Image
                 </Label>
-                <Input
-                  id="avatar"
-                  type="url"
-                  value={formData.avatar}
-                  onChange={(e) => handleInputChange('avatar', e.target.value)}
-                  placeholder="Enter avatar URL (optional)"
-                  className="bg-gray-900 border-none text-white placeholder-gray-500 h-12 rounded-lg w-full max-w-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  disabled={isSubmitting}
-                />
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
+                      {imagePreview ? (
+                        <img
+                          src={imagePreview}
+                          alt="Profile preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        id="avatar"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                        disabled={isSubmitting}
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => document.getElementById('avatar').click()}
+                        disabled={isSubmitting}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {imagePreview ? 'Change Image' : 'Upload Image'}
+                      </Button>
+                      {imagePreview && (
+                        <Button
+                          type="button"
+                          onClick={removeImage}
+                          disabled={isSubmitting}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
+                        >
+                          Remove Image
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-gray-400 text-xs">
+                    Supported formats: JPEG, PNG, GIF. Max size: 5MB
+                  </p>
+                </div>
               </div>
 
               {/* Submit Buttons */}

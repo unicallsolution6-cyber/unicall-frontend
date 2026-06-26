@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, MoreHorizontal } from 'lucide-react';
+import { Users, MoreHorizontal, Trash2, Loader } from 'lucide-react';
 import Sidebar from '../sidebar';
 import Header from '../header';
 import SubHeader from '../sub-header';
@@ -21,8 +21,30 @@ export default function Clients() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deletingId, setDeletingId] = useState(null);
   const { role } = useLayoutData();
   const router = useRouter();
+
+  const handleDeleteClient = async (e, clientId) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this client? This cannot be undone.')) {
+      return;
+    }
+    try {
+      setDeletingId(clientId);
+      const response = await clients.delete(clientId);
+      if (response.success) {
+        await fetchClients();
+      } else {
+        alert(response.message || 'Failed to delete client');
+      }
+    } catch (error) {
+      console.error('Delete client error:', error);
+      alert('Failed to delete client. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const banks = [
     {
@@ -376,12 +398,22 @@ export default function Clients() {
                       <span>{client.bank}</span>
                     </div>
 
-                    <div className="">
-                      <span className={`px-2 py-1 rounded-full text-xs mx-4`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs`}>
                         {client.status}
                       </span>
-                      <button className="px-3 py-1 text-xs font-semibold bg-blue-500 rounded hover:bg-blue-600 transition-colors">
-                        Action
+                      <button
+                        onClick={(e) => handleDeleteClient(e, client._id)}
+                        disabled={deletingId === client._id}
+                        title="Delete client"
+                        className="px-3 py-1 text-xs font-semibold bg-red-500 rounded hover:bg-red-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {deletingId === client._id ? (
+                          <Loader className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
+                        Delete
                       </button>
                     </div>
                   </div>

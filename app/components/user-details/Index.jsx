@@ -50,6 +50,8 @@ export default function UserDetails() {
 
   const [imagePreview, setImagePreview] = useState(null)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  // Tracks an explicit "remove the saved avatar" intent (vs just cancelling a new upload)
+  const [removeCurrentImage, setRemoveCurrentImage] = useState(false)
 
   // Determine if this is editing own profile or another user
   const isEditingOwnProfile = !userId || (currentUser && userId === currentUser._id)
@@ -78,10 +80,10 @@ export default function UserDetails() {
 
   // Additional effect to handle profile image loading from context
   useEffect(() => {
-    if (!imagePreview && user?.avatar) {
+    if (!imagePreview && user?.avatar && !removeCurrentImage) {
       setImagePreview(getImageUrl(user.avatar))
     }
-  }, [user, imagePreview])
+  }, [user, imagePreview, removeCurrentImage])
 
   const fetchUserDetails = async () => {
     try {
@@ -218,6 +220,8 @@ export default function UserDetails() {
         ...prev,
         profileImage: file
       }))
+      // Selecting a new file cancels any pending removal
+      setRemoveCurrentImage(false)
 
       // Create preview
       const reader = new FileReader()
@@ -229,22 +233,26 @@ export default function UserDetails() {
   }
 
   const removeImage = () => {
+    const hadNewUpload = !!formData.profileImage
+
+    // Always drop any newly-selected file and reset the file input
     setFormData(prev => ({
       ...prev,
       profileImage: null
     }))
-    
-    // If user has an existing profile image, show that, otherwise clear preview
-    if (user?.avatar) {
-      setImagePreview(getImageUrl(user.avatar))
-    } else {
-      setImagePreview(null)
-    }
-    
-    // Reset file input
     const fileInput = document.getElementById('profileImage')
     if (fileInput) {
       fileInput.value = ''
+    }
+
+    if (hadNewUpload) {
+      // "Cancel Upload" — revert to the existing saved avatar
+      setRemoveCurrentImage(false)
+      setImagePreview(user?.avatar ? getImageUrl(user.avatar) : null)
+    } else {
+      // "Remove Current Image" — clear it so submit deletes the saved avatar
+      setRemoveCurrentImage(true)
+      setImagePreview(null)
     }
   }
 
@@ -268,8 +276,8 @@ export default function UserDetails() {
         if (formData.profileImage) {
           // New image selected
           formDataToSend.append('avatar', formData.profileImage)
-        } else if (!imagePreview || imagePreview !== getImageUrl(user?.avatar)) {
-          // Image was removed (no preview or preview doesn't match original)
+        } else if (removeCurrentImage) {
+          // User explicitly removed the saved avatar
           formDataToSend.append('removeImage', 'true')
         }
 
@@ -296,8 +304,8 @@ export default function UserDetails() {
         if (formData.profileImage) {
           // New image selected
           formDataToSend.append('avatar', formData.profileImage)
-        } else if (!imagePreview || imagePreview !== getImageUrl(user?.avatar)) {
-          // Image was removed (no preview or preview doesn't match original)
+        } else if (removeCurrentImage) {
+          // Admin explicitly removed the saved avatar
           formDataToSend.append('removeImage', 'true')
         }
 
@@ -312,12 +320,13 @@ export default function UserDetails() {
         
         // Clear password field and uploaded file after successful update
         setFormData(prev => ({ ...prev, password: "", profileImage: null }))
-        
+        setRemoveCurrentImage(false)
+
         // Update image preview with the returned image URL from server
-        if (updatedUser.avatar) {
+        if (updatedUser.avatar && updatedUser.avatar !== '/user.png') {
           setImagePreview(getImageUrl(updatedUser.avatar))
-        } else if (!formData.profileImage) {
-          // If no image was uploaded and no existing image, clear preview
+        } else {
+          // Avatar was removed / reset to default
           setImagePreview(null)
         }
       } else {
@@ -473,7 +482,7 @@ export default function UserDetails() {
                           onClick={removeImage}
                           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
                         >
-                          {imagePreview === getImageUrl(user?.avatar) ? 'Remove Current Image' : 'Cancel Upload'}
+                          {formData.profileImage ? 'Cancel Upload' : 'Remove Current Image'}
                         </Button>
                       )}
                     </div>

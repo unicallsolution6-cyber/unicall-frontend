@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader } from 'lucide-react';
+import { Loader, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useLayoutData } from '@/app/LayoutWrapper';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,27 @@ export default function UnstructuredLeadForms({
   const [leadForms, setLeadForms] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleDeleteUnstructured = async (leadFormId) => {
+    if (!confirm('Are you sure you want to delete this lead form? This cannot be undone.')) {
+      return;
+    }
+    try {
+      setDeletingId(leadFormId);
+      const response = await api.leadForms.deleteUnstructured(leadFormId);
+      if (response.success) {
+        setLeadForms((prev) => prev.filter((f) => f._id !== leadFormId));
+      } else {
+        alert(response.message || 'Failed to delete lead form');
+      }
+    } catch (error) {
+      console.error('Delete unstructured lead form error:', error);
+      alert('Failed to delete lead form. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const fetchLeadForms = async () => {
     try {
@@ -180,6 +201,20 @@ export default function UnstructuredLeadForms({
                       >
                         Assign & View
                       </Button>
+                      {role === 'admin' && (
+                        <Button
+                          onClick={() => handleDeleteUnstructured(leadForm._id)}
+                          disabled={deletingId === leadForm._id}
+                          title="Delete lead form"
+                          className="text-white text-xs px-3 py-1 ml-2 bg-red-500 hover:bg-red-600 transition-all flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {deletingId === leadForm._id ? (
+                            <Loader className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
