@@ -15,7 +15,7 @@ export default function PersonalImages() {
 
   const [files, setFiles] = useState([]);
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
@@ -69,20 +69,39 @@ export default function PersonalImages() {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file);
-    } else {
-      alert('Only image files are allowed');
+    const picked = Array.from(e.target.files || []);
+    const images = picked.filter((file) => file.type.startsWith('image/'));
+
+    if (images.length !== picked.length) {
+      alert('Only image files are allowed. Non-image files were skipped.');
     }
+
+    // Append to any previously selected files, de-duplicating by name + size
+    setSelectedFiles((prev) => {
+      const merged = [...prev];
+      images.forEach((file) => {
+        const exists = merged.some(
+          (f) => f.name === file.name && f.size === file.size
+        );
+        if (!exists) merged.push(file);
+      });
+      return merged;
+    });
+
+    // Allow re-selecting the same file again after removal
+    e.target.value = '';
+  };
+
+  const removeSelectedFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFiles.length) return;
     setUploading(true);
     try {
-      await userFiles.upload(user._id, selectedFile);
-      setSelectedFile(null);
+      await userFiles.upload(user._id, selectedFiles);
+      setSelectedFiles([]);
       setFileUploadOpen(false);
       await fetchFiles();
     } catch (err) {
@@ -108,7 +127,7 @@ export default function PersonalImages() {
             onClick={() => setFileUploadOpen(true)}
             className="cursor-pointer bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-4 py-2 rounded-lg transition-colors"
           >
-            Upload Image
+            Upload Images
           </button>
         </div>
 
@@ -174,14 +193,14 @@ export default function PersonalImages() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-2xl w-[400px] shadow-lg">
             {/* Header */}
-            <h3 className="text-white text-xl font-bold mb-2">Upload Image</h3>
+            <h3 className="text-white text-xl font-bold mb-2">Upload Images</h3>
             <p className="text-gray-400 text-sm mb-6">
-              Please upload an{' '}
-              <span className="font-medium text-gray-200">image file</span>.
+              Please upload one or more{' '}
+              <span className="font-medium text-gray-200">image files</span>.
             </p>
 
             {/* File upload area */}
-            <div className="border-2 border-dashed border-gray-600 hover:border-purple-500 transition rounded-xl p-6 flex flex-col items-center justify-center text-gray-400 mb-6">
+            <div className="border-2 border-dashed border-gray-600 hover:border-purple-500 transition rounded-xl p-6 flex flex-col items-center justify-center text-gray-400 mb-4">
               <Upload className="w-8 h-8 mb-3 text-gray-500" />
 
               <label
@@ -195,23 +214,41 @@ export default function PersonalImages() {
                 type="file"
                 accept="image/*"
                 id="file-upload"
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
               />
-
-              {selectedFile && (
-                <p className="text-xs text-gray-300 mt-3">
-                  Selected: {selectedFile.name}
-                </p>
-              )}
             </div>
+
+            {/* Selected files list */}
+            {selectedFiles.length > 0 && (
+              <div className="mb-6 max-h-40 overflow-y-auto space-y-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${index}`}
+                    className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2"
+                  >
+                    <span className="text-xs text-gray-300 truncate mr-2">
+                      {file.name}
+                    </span>
+                    <button
+                      onClick={() => removeSelectedFile(index)}
+                      title="Remove"
+                      className="text-gray-400 hover:text-red-400 transition-colors shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex justify-end space-x-3">
               <Button
                 variant="ghost"
                 onClick={() => {
-                  setSelectedFile(null);
+                  setSelectedFiles([]);
                   setFileUploadOpen(false);
                 }}
                 className="text-gray-400 hover:text-white hover:bg-gray-700"
@@ -220,10 +257,14 @@ export default function PersonalImages() {
               </Button>
               <Button
                 onClick={handleUpload}
-                disabled={!selectedFile || uploading}
+                disabled={!selectedFiles.length || uploading}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
-                {uploading ? 'Uploading...' : 'Upload'}
+                {uploading
+                  ? 'Uploading...'
+                  : `Upload${
+                      selectedFiles.length ? ` (${selectedFiles.length})` : ''
+                    }`}
               </Button>
             </div>
           </div>
