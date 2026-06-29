@@ -93,10 +93,12 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const response = await auth.login(email, password);
+      console.log('[AUTH] login() got response:', response);
 
       if (response.success) {
         // Agents must verify an OTP before they're authenticated
         if (response.otpRequired) {
+          console.log('[AUTH] otpRequired TRUE -> returning otp result to page');
           return {
             success: true,
             otpRequired: true,
@@ -106,13 +108,16 @@ export const AuthProvider = ({ children }) => {
           };
         }
 
+        console.log('[AUTH] no otpRequired -> admin/direct login path');
         setUser(response.data.user);
         setIsAuthenticated(true);
         return { success: true, user: response.data.user };
       } else {
+        console.log('[AUTH] login failed:', response.message);
         return { success: false, message: response.message };
       }
     } catch (error) {
+      console.log('[AUTH] login() threw error:', error?.message, error);
       return { success: false, message: error.message };
     } finally {
       setLoading(false);

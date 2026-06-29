@@ -53,25 +53,31 @@ export default function Login() {
 
     try {
       const result = await login(username, password)
-      console.log("result", result)
+      console.log('[LOGIN PAGE] login() result:', result)
 
       if (result.success) {
+        console.log('[LOGIN PAGE] success=true, otpRequired=', result.otpRequired)
         if (result.otpRequired) {
           // Agent: move to the OTP verification step
+          console.log('[LOGIN PAGE] -> switching to OTP step')
           setOtpEmail(result.email)
           setCentralized(!!result.centralized)
           setStep("otp")
           const msg = result.message || "We've sent a 6-digit verification code."
           setInfo(msg)
           showToast('success', msg)
+          console.log('[LOGIN PAGE] step="otp" set, toast shown')
         } else {
+          console.log('[LOGIN PAGE] no otp -> redirectByRole', result.user)
           redirectByRole(result.user)
         }
       } else {
+        console.log('[LOGIN PAGE] result NOT success:', result.message)
         setError(result.message || 'Login failed')
         showToast('error', result.message || 'Login failed')
       }
     } catch (error) {
+      console.log('[LOGIN PAGE] handleSubmit threw:', error?.message, error)
       setError('Login failed. Please try again.')
       showToast('error', 'Login failed. Please try again.')
     } finally {
