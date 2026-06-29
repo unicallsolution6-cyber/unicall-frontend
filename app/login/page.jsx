@@ -53,6 +53,7 @@ export default function Login() {
 
     try {
       const result = await login(username, password)
+      console.log("result", result)
 
       if (result.success) {
         if (result.otpRequired) {
