@@ -6,6 +6,7 @@ import {
   Settings,
   LogOut,
   CreditCard,
+  Sheet,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -35,12 +36,14 @@ export default function Sidebar({ userInfo }) {
             link: '/admin/unicall-users',
           },
           { icon: UserCheck, label: 'Personal Images', link: '/admin/images' },
+          { icon: Sheet, label: 'Sheets', link: '/admin/sheets' },
         ]
       : [
           { icon: LayoutDashboard, label: 'Dashboard', link: '/dashboard' },
           { icon: FileText, label: 'Leads Forms', link: '/lead-forms' },
           { icon: Users, label: 'Clients', link: '/clients' },
           { icon: CreditCard, label: 'Card Lookup', link: '/card-lookup' },
+          { icon: Sheet, label: 'Sheets', link: '/sheets' },
         ];
 
   // Function to check if a route is active
@@ -69,6 +72,7 @@ export default function Sidebar({ userInfo }) {
       return true;
     if (link.includes('card-lookup') && pathname.includes('card-lookup'))
       return true;
+    if (link.includes('sheets') && pathname.includes('sheets')) return true;
 
     // Handle add-client page - should highlight Clients tab
     if (link.includes('clients') && pathname.includes('add-client'))

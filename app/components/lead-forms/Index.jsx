@@ -67,14 +67,14 @@ export default function LeadFormsPage() {
     setCurrentPage(1);
   };
 
-  const handleBulkUpload = async (file) => {
+  const handleBulkUpload = async (files) => {
     try {
       setLoading(true);
 
-      const response = await api.leadForms.bulkUpload(file);
+      const response = await api.leadForms.bulkUpload(files);
 
       if (response.success) {
-        alert(`${response.data.message} ${response.data.total}`);
+        alert(`${response.message} (processed ${response.data.total} rows)`);
         // fetchLeadForms(); // Refresh the list
       }
     } catch (error) {
@@ -86,14 +86,14 @@ export default function LeadFormsPage() {
     }
   };
 
-  const handleFileUpload = async (file) => {
+  const handleFileUpload = async (files) => {
     try {
       setLoading(true);
-      console.log(file);
-      const response = await api.leadForms.uploadFile(file);
+      console.log(files);
+      const response = await api.leadForms.uploadFile(files);
       console.log(response);
       if (response.success) {
-        alert(`${response.data.message} ${response.data.total}`);
+        alert(response.message);
         // fetchLeadForms(); // Refresh the list
       }
     } catch (error) {
@@ -198,11 +198,12 @@ export default function LeadFormsPage() {
                     type="file"
                     accept=".txt,.pdf,image/*"
                     id="file-upload"
+                    multiple
                     onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        if (activeTab !== 2)
-                          handleBulkUpload(e.target.files[0]);
-                        else handleFileUpload(e.target.files[0]);
+                      if (e.target.files && e.target.files.length) {
+                        const files = Array.from(e.target.files);
+                        if (activeTab !== 2) handleBulkUpload(files);
+                        else handleFileUpload(files);
                       }
                     }}
                     className="hidden"
@@ -210,8 +211,8 @@ export default function LeadFormsPage() {
 
                   <p className="text-xs text-gray-500 mt-3">
                     {activeTab !== 2
-                      ? 'Only .txt files are supported'
-                      : 'Upload any file'}
+                      ? 'Only .txt files are supported (you can select multiple)'
+                      : 'Upload one or more files'}
                   </p>
                 </div>
 

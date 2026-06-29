@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "../components/ui/Button"
 import { Input } from "../components/ui/Input"
 import { Label } from "../components/ui/Label"
-import { User, Key, Eye, EyeOff } from "lucide-react"
+import { User, Key, Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 
@@ -16,23 +16,43 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const { login } = useAuth()
+  // OTP (two-step) state
+  const [step, setStep] = useState("credentials") // 'credentials' | 'otp'
+  const [otp, setOtp] = useState("")
+  const [otpEmail, setOtpEmail] = useState("")
+  const [centralized, setCentralized] = useState(false)
+  const [info, setInfo] = useState("")
+  const [resending, setResending] = useState(false)
+
+  const { login, verifyOtp, resendOtp } = useAuth()
   const router = useRouter()
+
+  const redirectByRole = (user) => {
+    if (user?.role === 'admin') {
+      router.push('/admin/dashboard')
+    } else {
+      router.push('/dashboard')
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
+    setInfo("")
     setLoading(true)
 
     try {
       const result = await login(username, password)
-      
+
       if (result.success) {
-        // Redirect based on user role
-        if (result.user.role === 'admin') {
-          router.push('/admin/dashboard')
+        if (result.otpRequired) {
+          // Agent: move to the OTP verification step
+          setOtpEmail(result.email)
+          setCentralized(!!result.centralized)
+          setStep("otp")
+          setInfo(result.message || "We've sent a 6-digit verification code.")
         } else {
-          router.push('/dashboard')
+          redirectByRole(result.user)
         }
       } else {
         setError(result.message || 'Login failed')
@@ -42,6 +62,53 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setError("")
+    setInfo("")
+    setLoading(true)
+
+    try {
+      const result = await verifyOtp(otpEmail, otp.trim())
+
+      if (result.success) {
+        redirectByRole(result.user)
+      } else {
+        setError(result.message || 'Verification failed')
+      }
+    } catch (error) {
+      setError('Verification failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setError("")
+    setInfo("")
+    setResending(true)
+
+    try {
+      const result = await resendOtp(otpEmail)
+      if (result.success) {
+        setInfo(result.message || 'A new verification code has been sent.')
+      } else {
+        setError(result.message || 'Could not resend the code.')
+      }
+    } catch (error) {
+      setError('Could not resend the code. Please try again.')
+    } finally {
+      setResending(false)
+    }
+  }
+
+  const backToLogin = () => {
+    setStep("credentials")
+    setOtp("")
+    setError("")
+    setInfo("")
   }
 
   return (
@@ -87,8 +154,14 @@ export default function Login() {
         {/* Login Form */}
         <div className="bg-gray-900/30 backdrop-blur-md rounded-2xl p-8 px-10 border border-white/10 shadow-2xl mb-14">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white">Welcome Back!</h1>
-            <p className="text-gray-400 text-sm">welcome back we missed you</p>
+            <h1 className="text-3xl font-bold text-white">
+              {step === 'otp' ? 'Verify it’s you' : 'Welcome Back!'}
+            </h1>
+            <p className="text-gray-400 text-sm">
+              {step === 'otp'
+                ? 'Enter the code we sent to your email'
+                : 'welcome back we missed you'}
+            </p>
           </div>
 
           {error && (
@@ -97,6 +170,72 @@ export default function Login() {
             </div>
           )}
 
+          {info && (
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 mb-4">
+              <p className="text-purple-300 text-sm">{info}</p>
+            </div>
+          )}
+
+          {step === 'otp' ? (
+            <form onSubmit={handleVerifyOtp} className="space-y-5">
+              <div>
+                <Label htmlFor="otp" className="text-gray-300 text-sm mb-2 block">
+                  Verification Code
+                </Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    id="otp"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    value={otp}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    className="bg-gray-800/50 border-gray-700 text-white placeholder-gray-500 pl-12 h-11 rounded-lg tracking-[0.4em] text-center focus:border-purple-500 focus:ring-purple-500"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <p className="text-gray-500 text-xs mt-2">
+                  {centralized
+                    ? 'Your administrator will share the code with you.'
+                    : otpEmail
+                    ? `Code sent to ${otpEmail}`
+                    : ''}
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || otp.length !== 6}
+                className="w-full h-11 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Verifying...' : 'Verify & Sign in'}
+              </Button>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={backToLogin}
+                  className="flex items-center gap-1 text-gray-400 text-xs hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to login
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resending}
+                  className="text-gray-400 text-xs hover:text-purple-400 transition-colors disabled:opacity-50"
+                >
+                  {resending ? 'Resending...' : 'Resend code'}
+                </button>
+              </div>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <Label htmlFor="username" className="text-gray-300 text-sm mb-2 block">
@@ -155,6 +294,7 @@ export default function Login() {
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+          )}
         </div>
       </div>
 

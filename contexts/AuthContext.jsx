@@ -95,6 +95,17 @@ export const AuthProvider = ({ children }) => {
       const response = await auth.login(email, password);
 
       if (response.success) {
+        // Agents must verify an OTP before they're authenticated
+        if (response.otpRequired) {
+          return {
+            success: true,
+            otpRequired: true,
+            email: response.data?.email || email,
+            centralized: !!response.data?.centralized,
+            message: response.message,
+          };
+        }
+
         setUser(response.data.user);
         setIsAuthenticated(true);
         return { success: true, user: response.data.user };
@@ -105,6 +116,37 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: error.message };
     } finally {
       setLoading(false);
+    }
+  };
+
+  const verifyOtp = async (email, otp) => {
+    try {
+      setLoading(true);
+      const response = await auth.verifyOtp(email, otp);
+
+      if (response.success) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        return { success: true, user: response.data.user };
+      } else {
+        return { success: false, message: response.message };
+      }
+    } catch (error) {
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOtp = async (email) => {
+    try {
+      const response = await auth.resendOtp(email);
+      return {
+        success: !!response.success,
+        message: response.message,
+      };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   };
 
@@ -138,6 +180,8 @@ export const AuthProvider = ({ children }) => {
     loading,
     isAuthenticated,
     login,
+    verifyOtp,
+    resendOtp,
     register,
     logout,
     checkAuth,
