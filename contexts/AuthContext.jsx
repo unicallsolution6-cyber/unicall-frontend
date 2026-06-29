@@ -90,8 +90,11 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
+    // Do NOT toggle the global `loading` here: it gates the whole app's render
+    // (LayoutWrapper shows a full-screen spinner), which unmounts & remounts the
+    // login page and wipes the OTP step state. The login page has its own local
+    // button-loading state.
     try {
-      setLoading(true);
       const response = await auth.login(email, password);
       console.log('[AUTH] login() got response:', response);
 
@@ -119,14 +122,13 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log('[AUTH] login() threw error:', error?.message, error);
       return { success: false, message: error.message };
-    } finally {
-      setLoading(false);
     }
   };
 
   const verifyOtp = async (email, otp) => {
+    // Same as login(): keep the global loading flag untouched so the page
+    // doesn't remount mid-flow.
     try {
-      setLoading(true);
       const response = await auth.verifyOtp(email, otp);
 
       if (response.success) {
@@ -138,8 +140,6 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       return { success: false, message: error.message };
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -157,7 +157,6 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      setLoading(true);
       const response = await auth.register(userData);
 
       if (response.success) {
@@ -169,8 +168,6 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       return { success: false, message: error.message };
-    } finally {
-      setLoading(false);
     }
   };
 
