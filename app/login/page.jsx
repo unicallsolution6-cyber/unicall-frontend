@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "../components/ui/Button"
 import { Input } from "../components/ui/Input"
 import { Label } from "../components/ui/Label"
-import { User, Key, Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react"
+import { User, Key, Eye, EyeOff, ShieldCheck, ArrowLeft, CheckCircle2, XCircle, X } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 
@@ -23,6 +23,16 @@ export default function Login() {
   const [centralized, setCentralized] = useState(false)
   const [info, setInfo] = useState("")
   const [resending, setResending] = useState(false)
+
+  // Toast notification
+  const [toast, setToast] = useState(null) // { type: 'success' | 'error', text }
+  const toastTimer = useRef(null)
+  const showToast = (type, text) => {
+    if (!text) return
+    setToast({ type, text })
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 4000)
+  }
 
   const { login, verifyOtp, resendOtp } = useAuth()
   const router = useRouter()
@@ -50,15 +60,19 @@ export default function Login() {
           setOtpEmail(result.email)
           setCentralized(!!result.centralized)
           setStep("otp")
-          setInfo(result.message || "We've sent a 6-digit verification code.")
+          const msg = result.message || "We've sent a 6-digit verification code."
+          setInfo(msg)
+          showToast('success', msg)
         } else {
           redirectByRole(result.user)
         }
       } else {
         setError(result.message || 'Login failed')
+        showToast('error', result.message || 'Login failed')
       }
     } catch (error) {
       setError('Login failed. Please try again.')
+      showToast('error', 'Login failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -74,12 +88,15 @@ export default function Login() {
       const result = await verifyOtp(otpEmail, otp.trim())
 
       if (result.success) {
+        showToast('success', 'Verified! Signing you in...')
         redirectByRole(result.user)
       } else {
         setError(result.message || 'Verification failed')
+        showToast('error', result.message || 'Verification failed')
       }
     } catch (error) {
       setError('Verification failed. Please try again.')
+      showToast('error', 'Verification failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -93,12 +110,16 @@ export default function Login() {
     try {
       const result = await resendOtp(otpEmail)
       if (result.success) {
-        setInfo(result.message || 'A new verification code has been sent.')
+        const msg = result.message || 'A new verification code has been sent.'
+        setInfo(msg)
+        showToast('success', msg)
       } else {
         setError(result.message || 'Could not resend the code.')
+        showToast('error', result.message || 'Could not resend the code.')
       }
     } catch (error) {
       setError('Could not resend the code. Please try again.')
+      showToast('error', 'Could not resend the code. Please try again.')
     } finally {
       setResending(false)
     }
@@ -113,6 +134,32 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 animate-[slideIn_0.2s_ease-out]">
+          <div
+            className={`flex items-start gap-3 max-w-sm px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+              toast.type === 'success'
+                ? 'bg-green-500/15 border-green-500/30 text-green-200'
+                : 'bg-red-500/15 border-red-500/30 text-red-200'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-green-400" />
+            ) : (
+              <XCircle className="w-5 h-5 mt-0.5 shrink-0 text-red-400" />
+            )}
+            <p className="text-sm leading-snug flex-1">{toast.text}</p>
+            <button
+              onClick={() => setToast(null)}
+              className="text-white/50 hover:text-white shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Geometric Background Pattern */}
       {/* <div className="absolute inset-0">
         <svg className="w-full h-full" viewBox="0 0 1920 1080" fill="none">
